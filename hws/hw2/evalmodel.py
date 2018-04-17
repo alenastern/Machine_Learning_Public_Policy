@@ -2,6 +2,7 @@ import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.cross_validation import train_test_split
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix
 
 
 def accuracy(y_true, y_pred, normalize=True, sample_weight=None):
@@ -42,10 +43,22 @@ def knn_eval_table(y_test, x_test, x_train, y_train, n_neighbors, metric, weight
 	for n in n_neighbors:
 		for m in metric:
 			for w in weight:
-				knn = KNeighborsClassifier(n_neighbors = n, metric = m, weights = w, algorithm = 'brute')
+				knn = KNeighborsClassifier(n_neighbors = n, metric = m, 
+					weights = w, algorithm = 'brute')
 				knn.fit(x_train, y_train)
 				y_pred = knn.predict(x_test)
 				acc = accuracy(y_test, y_pred)
 				eval_table.append([n, m, w, acc])
 
-	return pd.DataFrame(eval_table, columns = ['n_neighbors', 'metric', 'weight', 'accuracy'])
+	return pd.DataFrame(eval_table, columns = ['n_neighbors', 'metric', 
+		'weight', 'accuracy'])
+
+
+def accuracy_table(x_test, y_test, x_train, y_train, n_neighbors, metric, weights):
+	knn = KNeighborsClassifier(n_neighbors = n_neighbors, metric = metric, 
+		weights = weights, algorithm = 'brute')
+	knn.fit(x_train, y_train)
+	y_pred = knn.predict(x_test)
+	tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+	return pd.DataFrame.from_items([('Actual_True', [tp, fn]), ('Actual_False', [fp, tn])],
+                      orient='index', columns=['Predict_True', 'Predict_False'])
