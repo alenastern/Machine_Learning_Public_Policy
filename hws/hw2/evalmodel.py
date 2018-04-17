@@ -54,7 +54,25 @@ def knn_eval_table(y_test, x_test, x_train, y_train, n_neighbors, metric, weight
 		'weight', 'accuracy'])
 
 
-def accuracy_table(x_test, y_test, x_train, y_train, n_neighbors, metric, weights):
+def accuracy_table_binary_knn(x_test, y_test, x_train, y_train, n_neighbors, metric, weights):
+	'''
+	Returns an accuracy table providing the number of true positives, true negatives,
+	false negatives, and false positives for a binary outcome model.
+	
+	Inputs:
+		y_test (dataframe): containing y (label) values for test set from data
+		x_test (dataframe): containing factor values for test set from data
+		y_train (dataframe): containing y (label) values for train set from data
+		x_train (dataframe): containing factor values for train set from data
+		n_neighbors (int): containing the number of neighbors to use in the KNN model
+		metric (str): containing the metric to use in the KNN model
+		weight (list): containing the weights to use in the KNN model
+
+	Returns:
+		accuracy table (dataframe): 2x2 table providing number of true positives, 
+			true negatives, false negatives, and false positives
+
+	'''
 	knn = KNeighborsClassifier(n_neighbors = n_neighbors, metric = metric, 
 		weights = weights, algorithm = 'brute')
 	knn.fit(x_train, y_train)
