@@ -53,6 +53,15 @@ def outliers_plot(data_frame):
     plt.show()
 
 def corr_table(data_frame):
+    '''
+    Produces a coorelation table of the pearson correlations between each
+    pair of two variables in the data frame.
+
+    Input:
+        data_frame (pandas dataframe)
+    Returns:
+        corr_table(pandas dataframe): dataframe of pairwise variable correlations 
+    '''
     return data_frame.corr(method = 'pearson')
 
 def plot_y_corr(corr_table, y):
