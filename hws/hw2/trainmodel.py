@@ -1,39 +1,3 @@
-# sample config file to run temporal validation
-
-# start time of our data
-start_time = '2009-01-01'
-
-#last date of data including labels and outcomes that we have
-end_time = '2016-01-01'
-
-#how far out do we want to predict (let's say in months for now)
-prediction_windows = [6, 12]
-
-#how often is this prediction being made? every day? every month? once a year?
-update_window = 12
-
-from datetime import date, datetime, timedelta
-from dateutil.relativedelta import relativedelta
-
-start_time_date = datetime.strptime(start_time, '%Y-%m-%d')
-end_time_date = datetime.strptime(end_time, '%Y-%m-%d')
-
-for prediction_window in prediction_windows:
-    test_end_time = end_time_date
-    while (test_end_time >= start_time_date + 2 * relativedelta(months=+prediction_window)):
-        test_start_time = test_end_time - relativedelta(months=+prediction_window)
-        train_end_time = test_start_time  - relativedelta(days=+1) # minus 1 day
-        train_start_time = train_end_time - relativedelta(months=+prediction_window)
-        while (train_start_time >= start_time_date ):
-            print train_start_time,train_end_time,test_start_time,test_end_time, prediction_window
-            train_start_time -= relativedelta(months=+prediction_window)
-            # call function to get data
-            train_set, test_set = extract_train_test_sets (train_start_time, train_end_time, test_start_time, test_end_time)
-            # fit on train data
-            # predict on test data
-        test_end_time -= relativedelta(months=+update_window)
-
-
 from __future__ import division
 import pandas as pd
 import numpy as np
@@ -54,81 +18,82 @@ from scipy import optimize
 import time
 import seaborn as sns
 
+
+# sample config file to run temporal validation
+
+def temporal_validate(start_time, end_time, prediction_windows):
+
+
+
+    #how often is this prediction being made? every day? every month? once a year?
+    update_window = 12
+
+    from datetime import date, datetime, timedelta
+    from dateutil.relativedelta import relativedelta
+
+    start_time_date = datetime.strptime(start_time, '%Y-%m-%d')
+    end_time_date = datetime.strptime(end_time, '%Y-%m-%d')
+
+    for prediction_window in prediction_windows:
+        windows = 1
+        test_end_time = start_time_date
+        while (end_time_date >= test_end_time + relativedelta(months=+prediction_window)):
+            train_start_time = start_time_date
+            train_end_time = train_start_time + windows * relativedelta(months=+prediction_window) - relativedelta(days=+1)
+            test_start_time = train_end_time + relativedelta(days=+1)
+            test_end_time = test_start_time  + relativedelta(months=+prediction_window) - relativedelta(days=+1)
+            print(train_start_time,train_end_time,test_start_time,test_end_time, prediction_window)
+
+
+            windows += 1
+            
+                # call function to get data
+                #train_set, test_set = extract_train_test_sets (train_start_time, train_end_time, test_start_time, test_end_time)
+                # fit on train data
+                # predict on test data
+            #test_end_time -= relativedelta(months=+update_window)
+            #print(test_end_time)
+
+
+
+
 # for jupyter notebooks
 #%matplotlib inline
 
 # if you're running this in a jupyter notebook, print out the graphs
 NOTEBOOK = 0
 
-def define_clfs_params(grid_size):
-    """Define defaults for different classifiers.
-    Define three types of grids:
-    Test: for testing your code
-    Small: small grid
-    Large: Larger grid that has a lot more parameter sweeps
-    """
 
-    clfs = {'RF': RandomForestClassifier(n_estimators=50, n_jobs=-1),
-        'ET': ExtraTreesClassifier(n_estimators=10, n_jobs=-1, criterion='entropy'),
-        'AB': AdaBoostClassifier(DecisionTreeClassifier(max_depth=1), algorithm="SAMME", n_estimators=200),
-        'LR': LogisticRegression(penalty='l1', C=1e5),
-        'SVM': svm.SVC(kernel='linear', probability=True, random_state=0),
-        'GB': GradientBoostingClassifier(learning_rate=0.05, subsample=0.5, max_depth=6, n_estimators=10),
-        'NB': GaussianNB(),
-        'DT': DecisionTreeClassifier(),
-        'SGD': SGDClassifier(loss="hinge", penalty="l2"),
-        'KNN': KNeighborsClassifier(n_neighbors=3) 
-            }
+classifiers = {'RF': RandomForestClassifier(n_estimators=50, n_jobs=-1),
+    'LR': LogisticRegression(penalty='l1', C=1e5),
+    'SVM': svm.SVC(kernel='linear', probability=True, random_state=0),
+    'GB': GradientBoostingClassifier(learning_rate=0.05, subsample=0.5, max_depth=6, n_estimators=10),
+    'NB': GaussianNB(),
+    'DT': DecisionTreeClassifier(),
+    'KNN': KNeighborsClassifier(n_neighbors=3) 
+        }
 
-    large_grid = { 
-    'RF':{'n_estimators': [1,10,100,1000,10000], 'max_depth': [1,5,10,20,50,100], 'max_features': ['sqrt','log2'],'min_samples_split': [2,5,10], 'n_jobs': [-1]},
-    'LR': { 'penalty': ['l1','l2'], 'C': [0.00001,0.0001,0.001,0.01,0.1,1,10]},
-    'SGD': { 'loss': ['hinge','log','perceptron'], 'penalty': ['l2','l1','elasticnet']},
-    'ET': { 'n_estimators': [1,10,100,1000,10000], 'criterion' : ['gini', 'entropy'] ,'max_depth': [1,5,10,20,50,100], 'max_features': ['sqrt','log2'],'min_samples_split': [2,5,10], 'n_jobs': [-1]},
-    'AB': { 'algorithm': ['SAMME', 'SAMME.R'], 'n_estimators': [1,10,100,1000,10000]},
-    'GB': {'n_estimators': [1,10,100,1000,10000], 'learning_rate' : [0.001,0.01,0.05,0.1,0.5],'subsample' : [0.1,0.5,1.0], 'max_depth': [1,3,5,10,20,50,100]},
-    'NB' : {},
-    'DT': {'criterion': ['gini', 'entropy'], 'max_depth': [1,5,10,20,50,100],'min_samples_split': [2,5,10]},
-    'SVM' :{'C' :[0.00001,0.0001,0.001,0.01,0.1,1,10],'kernel':['linear']},
-    'KNN' :{'n_neighbors': [1,5,10,25,50,100],'weights': ['uniform','distance'],'algorithm': ['auto','ball_tree','kd_tree']}
-           }
-    
-    small_grid = { 
+       
+
+parameters = { 
     'RF':{'n_estimators': [10,100], 'max_depth': [5,50], 'max_features': ['sqrt','log2'],'min_samples_split': [2,10], 'n_jobs': [-1]},
     'LR': { 'penalty': ['l1','l2'], 'C': [0.00001,0.001,0.1,1,10]},
-    'SGD': { 'loss': ['hinge','log','perceptron'], 'penalty': ['l2','l1','elasticnet']},
-    'ET': { 'n_estimators': [10,100], 'criterion' : ['gini', 'entropy'] ,'max_depth': [5,50], 'max_features': ['sqrt','log2'],'min_samples_split': [2,10], 'n_jobs': [-1]},
-    'AB': { 'algorithm': ['SAMME', 'SAMME.R'], 'n_estimators': [1,10,100,1000,10000]},
     'GB': {'n_estimators': [10,100], 'learning_rate' : [0.001,0.1,0.5],'subsample' : [0.1,0.5,1.0], 'max_depth': [5,50]},
     'NB' : {},
     'DT': {'criterion': ['gini', 'entropy'], 'max_depth': [1,5,10,20,50,100],'min_samples_split': [2,5,10]},
     'SVM' :{'C' :[0.00001,0.0001,0.001,0.01,0.1,1,10],'kernel':['linear']},
     'KNN' :{'n_neighbors': [1,5,10,25,50,100],'weights': ['uniform','distance'],'algorithm': ['auto','ball_tree','kd_tree']}
            }
-    
-    test_grid = { 
+
+test_grid = { 
     'RF':{'n_estimators': [1], 'max_depth': [1], 'max_features': ['sqrt'],'min_samples_split': [10]},
     'LR': { 'penalty': ['l1'], 'C': [0.01]},
-    'SGD': { 'loss': ['perceptron'], 'penalty': ['l2']},
-    'ET': { 'n_estimators': [1], 'criterion' : ['gini'] ,'max_depth': [1], 'max_features': ['sqrt'],'min_samples_split': [10]},
-    'AB': { 'algorithm': ['SAMME'], 'n_estimators': [1]},
     'GB': {'n_estimators': [1], 'learning_rate' : [0.1],'subsample' : [0.5], 'max_depth': [1]},
     'NB' : {},
     'DT': {'criterion': ['gini'], 'max_depth': [1],'min_samples_split': [10]},
     'SVM' :{'C' :[0.01],'kernel':['linear']},
     'KNN' :{'n_neighbors': [5],'weights': ['uniform'],'algorithm': ['auto']}
            }
-    
-    if (grid_size == 'large'):
-        return clfs, large_grid
-    elif (grid_size == 'small'):
-        return clfs, small_grid
-    elif (grid_size == 'test'):
-        return clfs, test_grid
-    else:
-        return 0, 0
-
-# a set of helper function to do machine learning evalaution
 
 def joint_sort_descending(l1, l2):
     # l1 and l2 have to be numpy arrays
@@ -181,7 +146,7 @@ def plot_precision_recall_n(y_true, y_prob, model_name):
     
 
 
-def clf_loop(models_to_run, clfs, grid, X, y):
+def clf_loop(models_to_run, classifiers, parameters, X, y):
     """Runs the loop using models_to_run, clfs, gridm and the data
     """
     results_df =  pd.DataFrame(columns=('model_type','clf', 'parameters', 'auc-roc','p_at_5', 'p_at_10', 'p_at_20'))
