@@ -167,14 +167,14 @@ def temporal_split(total_data, train_start, train_end, test_start, test_end, tim
 def run_models(models_to_run, classifiers, parameters, total_data, pred_var, temporal_validate = None, time_var= None):
     """Runs the loop using models_to_run, clfs, gridm and the data
     """
-    results_df =  pd.DataFrame(columns=('train_start', 'train_end', 'test_start', 'test_end', 'model_type','clf', 'parameters', 'auc-roc',
-        'p_at_1', 'p_at_5', 'p_at_10', 'p_at_20', 'p_at_50', 'r_at_1', 'r_at_5', 'r_at_10', 'r_at_20', 'r_at_50'))
+    results_df =  pd.DataFrame(columns=('train_start', 'train_end', 'test_start', 'test_end', 'model_type','clf', 'parameters', 'auc-roc', 'f1_score',
+        'p_at_1', 'p_at_2', 'p_at_5', 'p_at_10', 'p_at_20', 'p_at_30', 'p_at_50', 'r_at_1', 'r_at_2', 'r_at_5', 'r_at_10', 'r_at_20', 'r_at_30', 'r_at_50'))
     if temporal_validate:
         for t in temporal_validate:
             train_start, train_end, test_start, test_end = t[0], t[1], t[2], t[3]
             X_train, X_test, y_train, y_test = temporal_split(total_data, train_start, train_end, test_start, test_end, time_var, pred_var)
-            X_train = pp.fill_missing_median(X_train, 'students_reached_bins')
-            X_test = pp.fill_missing_median(X_test, 'students_reached_bins')
+            X_train.students_reached = X_train.students_reached.fillna(X_train.students_reached.median()) 
+            X_test.students_reached = X_test.students_reached.fillna(X_test.students_reached.median()) 
             for index, classifier in enumerate([classifiers[x] for x in models_to_run]):
                 print("Running through model {}...".format(models_to_run[index]))
                 parameter_values = parameters[models_to_run[index]]
@@ -186,6 +186,7 @@ def run_models(models_to_run, classifiers, parameters, total_data, pred_var, tem
                         results_df.loc[len(results_df)] = [train_start, train_end, test_start, test_end,
                                                            models_to_run[index],classifier, p,
                                                            roc_auc_score(y_test, y_pred_probs),
+                                                           f1_score(y_test, y_pred_probs),
                                                            precision_at_k(y_test_sorted,y_pred_probs_sorted,1.0),
                                                            precision_at_k(y_test_sorted,y_pred_probs_sorted,2.0),
                                                            precision_at_k(y_test_sorted,y_pred_probs_sorted,5.0),
@@ -200,10 +201,11 @@ def run_models(models_to_run, classifiers, parameters, total_data, pred_var, tem
                                                            recall_at_k(y_test_sorted,y_pred_probs_sorted,20.0),
                                                            recall_at_k(y_test_sorted,y_pred_probs_sorted,30.0),
                                                            recall_at_k(y_test_sorted,y_pred_probs_sorted,50.0)]
-                            #if NOTEBOOK == 1:
-                            #    plot_precision_recall_n(y_test,y_pred_probs,clf)
                     except IndexError as e:
                         print('Error:',e)
                         continue
-            return results_df
+            results_df.loc[len(results_df)] = [train_start, train_end, test_start, test_end, "baseline", '',
+                        '', y_test.sum()/len(y_test), '', '', '', '', '', '', '', '', '', '', '', '', '','']
+            
+        return results_df
 
