@@ -17,15 +17,16 @@ import matplotlib.pyplot as plt
 from scipy import optimize
 import time
 import seaborn as sns
+import sys
+sys.path.append('/Users/alenastern/Documents/Spring2018/Machine_Learning/Machine_Learning_Public_Policy/hws/hw2')
+import preprocess as pp
 
-
-# sample config file to run temporal validation
 
 def temporal_validate(start_time, end_time, prediction_windows):
 
-
-
     #how often is this prediction being made? every day? every month? once a year?
+    temp_split = []
+
     update_window = 12
 
     from datetime import date, datetime, timedelta
@@ -42,17 +43,14 @@ def temporal_validate(start_time, end_time, prediction_windows):
             train_end_time = train_start_time + windows * relativedelta(months=+prediction_window) - relativedelta(days=+1)
             test_start_time = train_end_time + relativedelta(days=+1)
             test_end_time = test_start_time  + relativedelta(months=+prediction_window) - relativedelta(days=+1)
-            print(train_start_time,train_end_time,test_start_time,test_end_time, prediction_window)
+            temp_split.append([train_start_time,train_end_time,test_start_time,test_end_time,prediction_window])
 
 
             windows += 1
+
+    return temp_split
             
-                # call function to get data
-                #train_set, test_set = extract_train_test_sets (train_start_time, train_end_time, test_start_time, test_end_time)
-                # fit on train data
-                # predict on test data
-            #test_end_time -= relativedelta(months=+update_window)
-            #print(test_end_time)
+     
 
 
 
@@ -113,6 +111,12 @@ def precision_at_k(y_true, y_scores, k):
     precision = precision_score(y_true, preds_at_k)
     return precision
 
+def recall_at_k(y_true, y_scores, k):
+    y_scores, y_true = joint_sort_descending(np.array(y_scores), np.array(y_true))
+    recall_at_k = generate_binary_at_k(y_scores, k)
+    recall = recall_score(y_true, recall_at_k)
+    return recall
+
 def plot_precision_recall_n(y_true, y_prob, model_name):
     from sklearn.metrics import precision_recall_curve
     y_score = y_prob
@@ -143,63 +147,63 @@ def plot_precision_recall_n(y_true, y_prob, model_name):
     plt.title(name)
     #plt.savefig(name)
     plt.show()
+
     
+def temporal_split(total_data, train_start, train_end, test_start, test_end, time_var, pred_var):
+    train_data = total_data[(total_data[time_var] >= train_start) & (total_data[time_var] <= train_end)]
+    train_data.drop([time_var], axis = 1)
+    y_train = train_data[pred_var]
+    X_train = train_data.drop([pred_var, time_var], axis = 1)
+
+    test_data = total_data[(total_data[time_var] >= test_start) & (total_data[time_var] <= test_end)]
+    test_data.drop([time_var], axis = 1)
+    y_test = test_data[pred_var]
+    X_test = test_data.drop([pred_var, time_var], axis = 1)
+
+    return X_train, X_test, y_train, y_test
 
 
-def clf_loop(models_to_run, classifiers, parameters, X, y):
+
+def run_models(models_to_run, classifiers, parameters, total_data, pred_var, temporal_validate = None, time_var= None):
     """Runs the loop using models_to_run, clfs, gridm and the data
     """
-    results_df =  pd.DataFrame(columns=('model_type','clf', 'parameters', 'auc-roc','p_at_5', 'p_at_10', 'p_at_20'))
+    results_df =  pd.DataFrame(columns=('train_start', 'train_end', 'test_start', 'test_end', 'model_type','clf', 'parameters', 'auc-roc',
+        'p_at_1', 'p_at_5', 'p_at_10', 'p_at_20', 'p_at_50', 'r_at_1', 'r_at_5', 'r_at_10', 'r_at_20', 'r_at_50'))
     for n in range(1, 2):
         # create training and valdation sets
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=0)
-        for index,clf in enumerate([clfs[x] for x in models_to_run]):
-            print(models_to_run[index])
-            parameter_values = grid[models_to_run[index]]
-            for p in ParameterGrid(parameter_values):
-                try:
-                    clf.set_params(**p)
-                    y_pred_probs = clf.fit(X_train, y_train).predict_proba(X_test)[:,1]
-                    # you can also store the model, feature importances, and prediction scores
-                    # we're only storing the metrics for now
-                    y_pred_probs_sorted, y_test_sorted = zip(*sorted(zip(y_pred_probs, y_test), reverse=True))
-                    results_df.loc[len(results_df)] = [models_to_run[index],clf, p,
-                                                       roc_auc_score(y_test, y_pred_probs),
-                                                       precision_at_k(y_test_sorted,y_pred_probs_sorted,5.0),
-                                                       precision_at_k(y_test_sorted,y_pred_probs_sorted,10.0),
-                                                       precision_at_k(y_test_sorted,y_pred_probs_sorted,20.0)]
-                    if NOTEBOOK == 1:
-                        plot_precision_recall_n(y_test,y_pred_probs,clf)
-                except IndexError as e:
-                    print('Error:',e)
-                    continue
-    return results_df
+        if temporal_validate:
+            for t in temporal_validate:
+                train_start, train_end, test_start, test_end = t[0], t[1], t[2], t[3]
+                X_train, X_test, y_train, y_test = temporal_split(total_data, train_start, train_end, test_start, test_end, time_var, pred_var)
+                X_train = pp.fill_missing_median(X_train)
+                X_test = pp.fill_missing_median(X_test)
+                for index, classifier in enumerate([classifiers[x] for x in models_to_run]):
+                    print("Running through model {}...".format(models_to_run[index]))
+                    parameter_values = parameters[models_to_run[index]]
+                    for p in ParameterGrid(parameter_values):
+                        try:
+                            classifier.set_params(**p)
+                            y_pred_probs = classifier.fit(X_train, y_train).predict_proba(X_test)[:,1]
+                            # you can also store the model, feature importances, and prediction scores
+                            # we're only storing the metrics for now
+                            y_pred_probs_sorted, y_test_sorted = zip(*sorted(zip(y_pred_probs, y_test), reverse=True))
+                            results_df.loc[len(results_df)] = [train_start, train_end, test_start, test_end,
+                                                               models_to_run[index],classifier, p,
+                                                               roc_auc_score(y_test, y_pred_probs),
+                                                               precision_at_k(y_test_sorted,y_pred_probs_sorted,1.0),
+                                                               precision_at_k(y_test_sorted,y_pred_probs_sorted,5.0),
+                                                               precision_at_k(y_test_sorted,y_pred_probs_sorted,10.0),
+                                                               precision_at_k(y_test_sorted,y_pred_probs_sorted,20.0),
+                                                               precision_at_k(y_test_sorted,y_pred_probs_sorted,50.0),
+                                                               recall_at_k(y_test_sorted,y_pred_probs_sorted,1.0),
+                                                               recall_at_k(y_test_sorted,y_pred_probs_sorted,5.0),
+                                                               recall_at_k(y_test_sorted,y_pred_probs_sorted,10.0),
+                                                               recall_at_k(y_test_sorted,y_pred_probs_sorted,20.0),
+                                                               recall_at_k(y_test_sorted,y_pred_probs_sorted,50.0)]
+                            #if NOTEBOOK == 1:
+                            #    plot_precision_recall_n(y_test,y_pred_probs,clf)
+                        except IndexError as e:
+                            print('Error:',e)
+                            continue
+            return results_df
 
-
-
-def main():
-
-    # define grid to use: test, small, large
-    grid_size = 'test'
-    clfs, grid = define_clfs_params(grid_size)
-
-    # define models to run
-    models_to_run=['RF','DT','KNN', 'ET', 'AB', 'GB', 'LR', 'NB']
-
-    # load data from csv
-    df = pd.read_csv("/Users/rayid/Projects/uchicago/Teaching/MLPP-2017/Homeworks/Assignment 2/credit-data.csv")
-
-    # select features to use
-    features  =  ['RevolvingUtilizationOfUnsecuredLines', 'DebtRatio', 'age', 'NumberOfTimes90DaysLate']
-    X = df[features]
-    
-    # define label
-    y = df.SeriousDlqin2yrs
-
-    # call clf_loop and store results in results_df
-    results_df = clf_loop(models_to_run, clfs,grid, X,y)
-    if NOTEBOOK == 1:
-        results_df
-
-    # save to csv
-    results_df.to_csv('results.csv', index=False)

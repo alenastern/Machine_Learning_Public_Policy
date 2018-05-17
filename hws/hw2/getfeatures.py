@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 
-def cat_to_dummy(data_frame, var):
+def cat_to_dummy(data_frame, var_list):
 	'''
 	Generates dummy variables for each category of a categorical variable
 	Inputs:
@@ -11,8 +11,11 @@ def cat_to_dummy(data_frame, var):
 	Returns:
 		data_frame (pandas dataframe) updated to include dummy variables
 	'''
-	dummy = pd.get_dummies(data_frame[var], prefix=var)
-	return pd.concat([data_frame, dummy], axis = 1)
+	for var in var_list:
+		dummy = pd.get_dummies(data_frame[var], prefix=var)
+		data_frame = pd.concat([data_frame, dummy], axis = 1)
+
+	return data_frame
 
 def discretize(data_frame, var, num_bins=10, labels=False):
 	'''
