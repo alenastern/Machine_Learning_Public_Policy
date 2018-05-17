@@ -10,7 +10,7 @@ def null_cols(data_frame):
     return isnull_cols
 
 
-def fill_missing_median(df):
+def fill_missing_median(df, col):
     '''
     Fills all missing values with the median value of the given column
     Inputs:
@@ -19,7 +19,7 @@ def fill_missing_median(df):
         data_frame (pandas dataframe) with missing values imputed
     '''
 
-    nc = null_cols(df)
+   #nc = null_cols(df)
     
     #for col in nc:
     #    print(col)
@@ -28,12 +28,11 @@ def fill_missing_median(df):
     #    data_frame[col].replace('NaN',col_med).fillna(col_med, inplace = True)
 
 
-    for col in nc:
-        col_median = df[col].median()
-        print(col_median)
-        df[col].fillna(col_median, inplace = True)
+    #for col in nc:
+    col_median = df[col].median()
+    df[col].fillna(col_median, inplace = True)
 
-        return df
+    return df
 
     #return data_frame
 

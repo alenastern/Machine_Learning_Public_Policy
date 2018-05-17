@@ -169,41 +169,41 @@ def run_models(models_to_run, classifiers, parameters, total_data, pred_var, tem
     """
     results_df =  pd.DataFrame(columns=('train_start', 'train_end', 'test_start', 'test_end', 'model_type','clf', 'parameters', 'auc-roc',
         'p_at_1', 'p_at_5', 'p_at_10', 'p_at_20', 'p_at_50', 'r_at_1', 'r_at_5', 'r_at_10', 'r_at_20', 'r_at_50'))
-    for n in range(1, 2):
-        # create training and valdation sets
-        if temporal_validate:
-            for t in temporal_validate:
-                train_start, train_end, test_start, test_end = t[0], t[1], t[2], t[3]
-                X_train, X_test, y_train, y_test = temporal_split(total_data, train_start, train_end, test_start, test_end, time_var, pred_var)
-                X_train = pp.fill_missing_median(X_train)
-                X_test = pp.fill_missing_median(X_test)
-                for index, classifier in enumerate([classifiers[x] for x in models_to_run]):
-                    print("Running through model {}...".format(models_to_run[index]))
-                    parameter_values = parameters[models_to_run[index]]
-                    for p in ParameterGrid(parameter_values):
-                        try:
-                            classifier.set_params(**p)
-                            y_pred_probs = classifier.fit(X_train, y_train).predict_proba(X_test)[:,1]
-                            # you can also store the model, feature importances, and prediction scores
-                            # we're only storing the metrics for now
-                            y_pred_probs_sorted, y_test_sorted = zip(*sorted(zip(y_pred_probs, y_test), reverse=True))
-                            results_df.loc[len(results_df)] = [train_start, train_end, test_start, test_end,
-                                                               models_to_run[index],classifier, p,
-                                                               roc_auc_score(y_test, y_pred_probs),
-                                                               precision_at_k(y_test_sorted,y_pred_probs_sorted,1.0),
-                                                               precision_at_k(y_test_sorted,y_pred_probs_sorted,5.0),
-                                                               precision_at_k(y_test_sorted,y_pred_probs_sorted,10.0),
-                                                               precision_at_k(y_test_sorted,y_pred_probs_sorted,20.0),
-                                                               precision_at_k(y_test_sorted,y_pred_probs_sorted,50.0),
-                                                               recall_at_k(y_test_sorted,y_pred_probs_sorted,1.0),
-                                                               recall_at_k(y_test_sorted,y_pred_probs_sorted,5.0),
-                                                               recall_at_k(y_test_sorted,y_pred_probs_sorted,10.0),
-                                                               recall_at_k(y_test_sorted,y_pred_probs_sorted,20.0),
-                                                               recall_at_k(y_test_sorted,y_pred_probs_sorted,50.0)]
+    if temporal_validate:
+        for t in temporal_validate:
+            train_start, train_end, test_start, test_end = t[0], t[1], t[2], t[3]
+            X_train, X_test, y_train, y_test = temporal_split(total_data, train_start, train_end, test_start, test_end, time_var, pred_var)
+            X_train = pp.fill_missing_median(X_train, 'students_reached_bins')
+            X_test = pp.fill_missing_median(X_test, 'students_reached_bins')
+            for index, classifier in enumerate([classifiers[x] for x in models_to_run]):
+                print("Running through model {}...".format(models_to_run[index]))
+                parameter_values = parameters[models_to_run[index]]
+                for p in ParameterGrid(parameter_values):
+                    try:
+                        classifier.set_params(**p)
+                        y_pred_probs = classifier.fit(X_train, y_train).predict_proba(X_test)[:,1]
+                        y_pred_probs_sorted, y_test_sorted = zip(*sorted(zip(y_pred_probs, y_test), reverse=True))
+                        results_df.loc[len(results_df)] = [train_start, train_end, test_start, test_end,
+                                                           models_to_run[index],classifier, p,
+                                                           roc_auc_score(y_test, y_pred_probs),
+                                                           precision_at_k(y_test_sorted,y_pred_probs_sorted,1.0),
+                                                           precision_at_k(y_test_sorted,y_pred_probs_sorted,2.0),
+                                                           precision_at_k(y_test_sorted,y_pred_probs_sorted,5.0),
+                                                           precision_at_k(y_test_sorted,y_pred_probs_sorted,10.0),
+                                                           precision_at_k(y_test_sorted,y_pred_probs_sorted,20.0),
+                                                           precision_at_k(y_test_sorted,y_pred_probs_sorted,30.0),
+                                                           precision_at_k(y_test_sorted,y_pred_probs_sorted,50.0),
+                                                           recall_at_k(y_test_sorted,y_pred_probs_sorted,1.0),
+                                                           recall_at_k(y_test_sorted,y_pred_probs_sorted,2.0),
+                                                           recall_at_k(y_test_sorted,y_pred_probs_sorted,5.0),
+                                                           recall_at_k(y_test_sorted,y_pred_probs_sorted,10.0),
+                                                           recall_at_k(y_test_sorted,y_pred_probs_sorted,20.0),
+                                                           recall_at_k(y_test_sorted,y_pred_probs_sorted,30.0),
+                                                           recall_at_k(y_test_sorted,y_pred_probs_sorted,50.0)]
                             #if NOTEBOOK == 1:
                             #    plot_precision_recall_n(y_test,y_pred_probs,clf)
-                        except IndexError as e:
-                            print('Error:',e)
-                            continue
+                    except IndexError as e:
+                        print('Error:',e)
+                        continue
             return results_df
 
