@@ -21,14 +21,14 @@ import sys
 sys.path.append('/Users/alenastern/Documents/Spring2018/Machine_Learning/Machine_Learning_Public_Policy/hws/hw2')
 import preprocess as pp
 
-#Functions adapted from Rayid Ghani, Data Science for Social Good: https://github.com/rayidghani/magicloops 
-
 def temporal_validate(start_time, end_time, prediction_windows):
+'''
+Starting from start time, create training sets incrementing in number of months specified by prediction_window, with 
+test set beginning one day following the end of training set for a duration of the number of months specified by
+prediction_window. Continue until end_time is reached.
 
-    #how often is this prediction being made? every day? every month? once a year?
-    temp_split = []
-
-    update_window = 12
+Returns list outlining train start, train end, test start, and test end for all temporal splits.
+'''
 
     from datetime import date, datetime, timedelta
     from dateutil.relativedelta import relativedelta
@@ -54,30 +54,46 @@ def temporal_validate(start_time, end_time, prediction_windows):
      
 
 def joint_sort_descending(l1, l2):
-    # l1 and l2 have to be numpy arrays
+    '''
+    Sorts y_test and y_pred in descending order of probability.
+    Adapted with permission from Rayid Ghani, Data Science for Social Good: https://github.com/rayidghani/magicloops 
+    '''
     idx = np.argsort(l1)[::-1]
     return l1[idx], l2[idx]
 
 def generate_binary_at_k(y_scores, k):
+    '''
+    Converts probability score into binary outcome measure based upon cutoff.
+    Adapted with permission from Rayid Ghani, Data Science for Social Good: https://github.com/rayidghani/magicloops 
+    '''
     cutoff_index = int(len(y_scores) * (k / 100.0))
     test_predictions_binary = [1 if x < cutoff_index else 0 for x in range(len(y_scores))]
     return test_predictions_binary
 
 def precision_at_k(y_true, y_scores, k):
+    '''
+    Calculates precision at given threshold k.
+    Adapted with permission from Rayid Ghani, Data Science for Social Good: https://github.com/rayidghani/magicloops 
+    '''
     y_scores, y_true = joint_sort_descending(np.array(y_scores), np.array(y_true))
     preds_at_k = generate_binary_at_k(y_scores, k)
-    #precision, _, _, _ = metrics.precision_recall_fscore_support(y_true, preds_at_k)
-    #precision = precision[1]  # only interested in precision for label 1
     precision = precision_score(y_true, preds_at_k)
     return precision
 
 def recall_at_k(y_true, y_scores, k):
+    '''
+    Calculates recall at given threshold k.
+    '''
     y_scores, y_true = joint_sort_descending(np.array(y_scores), np.array(y_true))
     recall_at_k = generate_binary_at_k(y_scores, k)
     recall = recall_score(y_true, recall_at_k)
     return recall
 
 def plot_precision_recall_n(y_true, y_prob, model_name):
+    '''
+    Plots precision-recall curve for a given model.
+    Adapted with permission from Rayid Ghani, Data Science for Social Good: https://github.com/rayidghani/magicloops 
+    '''
     from sklearn.metrics import precision_recall_curve
     y_score = y_prob
     precision_curve, recall_curve, pr_thresholds = precision_recall_curve(y_true, y_score)
@@ -110,6 +126,11 @@ def plot_precision_recall_n(y_true, y_prob, model_name):
 
     
 def temporal_split(total_data, train_start, train_end, test_start, test_end, time_var, pred_var):
+    '''
+    Splits data into train set and test set given temporal split train start/end and test start/end times.
+    
+    Returns X train/test sets and Y train/test sets.
+    '''
     train_data = total_data[(total_data[time_var] >= train_start) & (total_data[time_var] <= train_end)]
     train_data.drop([time_var], axis = 1)
     y_train = train_data[pred_var]
@@ -125,7 +146,14 @@ def temporal_split(total_data, train_start, train_end, test_start, test_end, tim
 
 
 def run_models(models_to_run, classifiers, parameters, total_data, pred_var, temporal_validate = None, time_var= None):
-    """Runs the loop using models_to_run, clfs, gridm and the data
+    """
+    Given a set of models to run and parameters, runs each model for each combination of parameters. If a set of temporal 
+    splits is provided, also runs each set of models/parameters for each temporal split in the model. 
+    
+    Returns table with temporal split, model, and parameter information along with model performance on a number of specified
+    metrics including auc-roc, precision at different levels, recall at different levels, and F1 at different levels.
+    
+    Table also includes baseline of the prevalence of the positive outcome label in the population for each temporal split. 
     """
     results_df =  pd.DataFrame(columns=('train_start', 'train_end', 'test_start', 'test_end', 'model_type','clf', 'parameters', 'auc-roc',
         'p_at_1', 'p_at_2', 'p_at_5', 'p_at_10', 'p_at_20', 'p_at_30', 'p_at_50', 'r_at_1', 'r_at_2', 'r_at_5', 'r_at_10', 'r_at_20', 'r_at_30', 'r_at_50',
