@@ -21,6 +21,7 @@ import sys
 sys.path.append('/Users/alenastern/Documents/Spring2018/Machine_Learning/Machine_Learning_Public_Policy/hws/hw2')
 import preprocess as pp
 
+#Functions adapted from Rayid Ghani, Data Science for Social Good: https://github.com/rayidghani/magicloops 
 
 def temporal_validate(start_time, end_time, prediction_windows):
 
