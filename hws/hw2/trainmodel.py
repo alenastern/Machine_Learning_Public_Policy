@@ -52,47 +52,6 @@ def temporal_validate(start_time, end_time, prediction_windows):
             
      
 
-
-
-
-# for jupyter notebooks
-#%matplotlib inline
-
-# if you're running this in a jupyter notebook, print out the graphs
-NOTEBOOK = 0
-
-
-classifiers = {'RF': RandomForestClassifier(n_estimators=50, n_jobs=-1),
-    'LR': LogisticRegression(penalty='l1', C=1e5),
-    'SVM': svm.SVC(kernel='linear', probability=True, random_state=0),
-    'GB': GradientBoostingClassifier(learning_rate=0.05, subsample=0.5, max_depth=6, n_estimators=10),
-    'NB': GaussianNB(),
-    'DT': DecisionTreeClassifier(),
-    'KNN': KNeighborsClassifier(n_neighbors=3) 
-        }
-
-       
-
-parameters = { 
-    'RF':{'n_estimators': [10,100], 'max_depth': [5,50], 'max_features': ['sqrt','log2'],'min_samples_split': [2,10], 'n_jobs': [-1]},
-    'LR': { 'penalty': ['l1','l2'], 'C': [0.00001,0.001,0.1,1,10]},
-    'GB': {'n_estimators': [10,100], 'learning_rate' : [0.001,0.1,0.5],'subsample' : [0.1,0.5,1.0], 'max_depth': [5,50]},
-    'NB' : {},
-    'DT': {'criterion': ['gini', 'entropy'], 'max_depth': [1,5,10,20,50,100],'min_samples_split': [2,5,10]},
-    'SVM' :{'C' :[0.00001,0.0001,0.001,0.01,0.1,1,10],'kernel':['linear']},
-    'KNN' :{'n_neighbors': [1,5,10,25,50,100],'weights': ['uniform','distance'],'algorithm': ['auto','ball_tree','kd_tree']}
-           }
-
-test_grid = { 
-    'RF':{'n_estimators': [1], 'max_depth': [1], 'max_features': ['sqrt'],'min_samples_split': [10]},
-    'LR': { 'penalty': ['l1'], 'C': [0.01]},
-    'GB': {'n_estimators': [1], 'learning_rate' : [0.1],'subsample' : [0.5], 'max_depth': [1]},
-    'NB' : {},
-    'DT': {'criterion': ['gini'], 'max_depth': [1],'min_samples_split': [10]},
-    'SVM' :{'C' :[0.01],'kernel':['linear']},
-    'KNN' :{'n_neighbors': [5],'weights': ['uniform'],'algorithm': ['auto']}
-           }
-
 def joint_sort_descending(l1, l2):
     # l1 and l2 have to be numpy arrays
     idx = np.argsort(l1)[::-1]
@@ -167,45 +126,55 @@ def temporal_split(total_data, train_start, train_end, test_start, test_end, tim
 def run_models(models_to_run, classifiers, parameters, total_data, pred_var, temporal_validate = None, time_var= None):
     """Runs the loop using models_to_run, clfs, gridm and the data
     """
-    results_df =  pd.DataFrame(columns=('train_start', 'train_end', 'test_start', 'test_end', 'model_type','clf', 'parameters', 'auc-roc', 'f1_score',
-        'p_at_1', 'p_at_2', 'p_at_5', 'p_at_10', 'p_at_20', 'p_at_30', 'p_at_50', 'r_at_1', 'r_at_2', 'r_at_5', 'r_at_10', 'r_at_20', 'r_at_30', 'r_at_50'))
+    results_df =  pd.DataFrame(columns=('train_start', 'train_end', 'test_start', 'test_end', 'model_type','clf', 'parameters', 'auc-roc',
+        'p_at_1', 'p_at_2', 'p_at_5', 'p_at_10', 'p_at_20', 'p_at_30', 'p_at_50', 'r_at_1', 'r_at_2', 'r_at_5', 'r_at_10', 'r_at_20', 'r_at_30', 'r_at_50',
+        'f1_at_2', 'f1_at_20', 'f1_at_50'))
     if temporal_validate:
         for t in temporal_validate:
             train_start, train_end, test_start, test_end = t[0], t[1], t[2], t[3]
             X_train, X_test, y_train, y_test = temporal_split(total_data, train_start, train_end, test_start, test_end, time_var, pred_var)
-            X_train.students_reached = X_train.students_reached.fillna(X_train.students_reached.median()) 
-            X_test.students_reached = X_test.students_reached.fillna(X_test.students_reached.median()) 
+            X_train.students_reached_bins = X_train.students_reached_bins.fillna(X_train.students_reached_bins.median()) 
+            X_test.students_reached_bins = X_test.students_reached_bins.fillna(X_test.students_reached_bins.median()) 
             for index, classifier in enumerate([classifiers[x] for x in models_to_run]):
                 print("Running through model {}...".format(models_to_run[index]))
                 parameter_values = parameters[models_to_run[index]]
                 for p in ParameterGrid(parameter_values):
+                    print(p)
                     try:
                         classifier.set_params(**p)
                         y_pred_probs = classifier.fit(X_train, y_train).predict_proba(X_test)[:,1]
                         y_pred_probs_sorted, y_test_sorted = zip(*sorted(zip(y_pred_probs, y_test), reverse=True))
+                        p_at_2 = precision_at_k(y_test_sorted,y_pred_probs_sorted,2.0)
+                        r_at_2 = recall_at_k(y_test_sorted,y_pred_probs_sorted,2.0)
+                        p_at_20 = precision_at_k(y_test_sorted,y_pred_probs_sorted,20.0)
+                        r_at_20 = recall_at_k(y_test_sorted,y_pred_probs_sorted,20.0)
+                        p_at_50 = precision_at_k(y_test_sorted,y_pred_probs_sorted,50.0)
+                        r_at_50 = recall_at_k(y_test_sorted,y_pred_probs_sorted,50.0)
                         results_df.loc[len(results_df)] = [train_start, train_end, test_start, test_end,
                                                            models_to_run[index],classifier, p,
-                                                           roc_auc_score(y_test, y_pred_probs),
-                                                           f1_score(y_test, y_pred_probs),
+                                                           roc_auc_score(y_test_sorted, y_pred_probs),
                                                            precision_at_k(y_test_sorted,y_pred_probs_sorted,1.0),
-                                                           precision_at_k(y_test_sorted,y_pred_probs_sorted,2.0),
+                                                           p_at_2,
                                                            precision_at_k(y_test_sorted,y_pred_probs_sorted,5.0),
                                                            precision_at_k(y_test_sorted,y_pred_probs_sorted,10.0),
-                                                           precision_at_k(y_test_sorted,y_pred_probs_sorted,20.0),
+                                                           p_at_20,
                                                            precision_at_k(y_test_sorted,y_pred_probs_sorted,30.0),
-                                                           precision_at_k(y_test_sorted,y_pred_probs_sorted,50.0),
+                                                           p_at_50,
                                                            recall_at_k(y_test_sorted,y_pred_probs_sorted,1.0),
-                                                           recall_at_k(y_test_sorted,y_pred_probs_sorted,2.0),
+                                                           r_at_2,
                                                            recall_at_k(y_test_sorted,y_pred_probs_sorted,5.0),
                                                            recall_at_k(y_test_sorted,y_pred_probs_sorted,10.0),
-                                                           recall_at_k(y_test_sorted,y_pred_probs_sorted,20.0),
+                                                           r_at_20,
                                                            recall_at_k(y_test_sorted,y_pred_probs_sorted,30.0),
-                                                           recall_at_k(y_test_sorted,y_pred_probs_sorted,50.0)]
+                                                           r_at_50,
+                                                           2*(p_at_2*r_at_2)/(p_at_2 + r_at_2),
+                                                           2*(p_at_20*r_at_20)/(p_at_20 + r_at_20),
+                                                           2*(p_at_50*r_at_50)/(p_at_50 + r_at_50)]
                     except IndexError as e:
                         print('Error:',e)
                         continue
             results_df.loc[len(results_df)] = [train_start, train_end, test_start, test_end, "baseline", '',
-                        '', y_test.sum()/len(y_test), '', '', '', '', '', '', '', '', '', '', '', '', '','']
+                        '', y_test.sum()/len(y_test), '', '', '', '', '', '', '', '', '', '', '', '', '','', '', '', '']
             
         return results_df
 

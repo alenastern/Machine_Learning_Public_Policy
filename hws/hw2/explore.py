@@ -38,6 +38,12 @@ def dist_plot(data_frame):
     data_frame.hist()
     plt.show()
 
+def cat_plot(data_frame, col_names):
+    for col in col_names:
+        sb.countplot(x = col, data=data_frame)
+        plt.xticks(rotation=90)
+        plt.show()
+
 def outliers_plot(data_frame):
     '''
     Produces box plot for all variables in the dataframe to inspect outliers

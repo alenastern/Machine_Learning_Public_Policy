@@ -32,6 +32,9 @@ def fill_missing_median(df, col):
     col_median = df[col].median()
     df[col].fillna(col_median, inplace = True)
 
+    #inds = np.where(np.isnan(df[col]))
+    #df[col][inds] = np.take(col_median, inds[1])
+
     return df
 
     #return data_frame
