@@ -22,13 +22,13 @@ sys.path.append('/Users/alenastern/Documents/Spring2018/Machine_Learning/Machine
 import preprocess as pp
 
 def temporal_validate(start_time, end_time, prediction_windows):
-'''
-Starting from start time, create training sets incrementing in number of months specified by prediction_window, with 
-test set beginning one day following the end of training set for a duration of the number of months specified by
-prediction_window. Continue until end_time is reached.
+    '''
+    Starting from start time, create training sets incrementing in number of months specified by prediction_window, with 
+    test set beginning one day following the end of training set for a duration of the number of months specified by
+    prediction_window. Continue until end_time is reached.
 
-Returns list outlining train start, train end, test start, and test end for all temporal splits.
-'''
+    Returns list outlining train start, train end, test start, and test end for all temporal splits.
+    '''
 
     from datetime import date, datetime, timedelta
     from dateutil.relativedelta import relativedelta
@@ -158,6 +158,7 @@ def run_models(models_to_run, classifiers, parameters, total_data, pred_var, tem
     results_df =  pd.DataFrame(columns=('train_start', 'train_end', 'test_start', 'test_end', 'model_type','clf', 'parameters', 'auc-roc',
         'p_at_1', 'p_at_2', 'p_at_5', 'p_at_10', 'p_at_20', 'p_at_30', 'p_at_50', 'r_at_1', 'r_at_2', 'r_at_5', 'r_at_10', 'r_at_20', 'r_at_30', 'r_at_50',
         'f1_at_2', 'f1_at_20', 'f1_at_50'))
+    params = []
     if temporal_validate:
         for t in temporal_validate:
             train_start, train_end, test_start, test_end = t[0], t[1], t[2], t[3]
@@ -168,7 +169,7 @@ def run_models(models_to_run, classifiers, parameters, total_data, pred_var, tem
                 print("Running through model {}...".format(models_to_run[index]))
                 parameter_values = parameters[models_to_run[index]]
                 for p in ParameterGrid(parameter_values):
-                    print(p)
+                    params.append(p)
                     try:
                         classifier.set_params(**p)
                         y_pred_probs = classifier.fit(X_train, y_train).predict_proba(X_test)[:,1]
@@ -205,5 +206,5 @@ def run_models(models_to_run, classifiers, parameters, total_data, pred_var, tem
             results_df.loc[len(results_df)] = [train_start, train_end, test_start, test_end, "baseline", '',
                         '', y_test.sum()/len(y_test), '', '', '', '', '', '', '', '', '', '', '', '', '','', '', '', '']
             
-        return results_df
+        return results_df, params
 
