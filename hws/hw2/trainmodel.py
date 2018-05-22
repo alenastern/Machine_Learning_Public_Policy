@@ -33,6 +33,8 @@ def temporal_validate(start_time, end_time, prediction_windows):
     from datetime import date, datetime, timedelta
     from dateutil.relativedelta import relativedelta
 
+    temp_split = []
+
     start_time_date = datetime.strptime(start_time, '%Y-%m-%d')
     end_time_date = datetime.strptime(end_time, '%Y-%m-%d')
 
